@@ -16,6 +16,7 @@ package com.example.android.trackmysleepquality.sleeptracker
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.Transformations
 import com.example.android.trackmysleepquality.database.SleepDatabaseDao
@@ -45,12 +46,51 @@ class SleepTrackerViewModel(val database: SleepDatabaseDao, application: Applica
 
     private val nights = database.getAllNight()   //get all nights from the database
 
+    /**Is visible when toNight is null**/
+    val startButtonVisible = Transformations.map(toNight){
+        it == null
+    }
+
+    /**Is visible when toNight is not null**/
+    val stopButtonVisible = Transformations.map(toNight){
+        it != null
+    }
+
+    /**Is visible when there are nights to clear**/
+    val clearButtonVisible = Transformations.map(nights){
+        it?.isNotEmpty()
+    }
+
+    /**Add this in XML to handle Buttons visibility**/
+    /*android:enabled="@{sleepTrackerViewModel.startButtonVisible}"
+    android:enabled="@{sleepTrackerViewModel.stopButtonVisible}"
+    android:enabled="@{sleepTrackerViewModel.clearButtonVisible}"*/
+
+    /**Show a SnackBar as a quick message to the user**/
+    private val _showSnackbarEvent = MutableLiveData<Boolean?>()
+            val showSnackbar : LiveData<Boolean?>
+            get() = _showSnackbarEvent
+
+    fun doneShowingSnackBar(){
+        _showSnackbarEvent.value = false  /**Go to add an observer for this in its fragment**/
+    }
+
+
+    /**For navigating to sleepQualityFragment**/
+    private val _navigateToSleepQuality = MutableLiveData<SleepNight>()
+            val navigateToSleepQuality : LiveData<SleepNight>
+            get() = _navigateToSleepQuality
+
+    fun doneNavigation(){
+        _navigateToSleepQuality.value = null
+    }
+
     /**
      * Displaying data by using map transformation
      * Add :android:text="@{sleepTrackerViewModel.nightString}" XML
      */
     val nightString = Transformations.map(nights) { nights ->
-        formatNights(nights, application.resources)
+       formatNights(nights, application.resources)
     }
 
     init {
@@ -97,7 +137,8 @@ class SleepTrackerViewModel(val database: SleepDatabaseDao, application: Applica
             /**Update the night in the database to add the end time.**/
             oldNight.endTimeMilli = System.currentTimeMillis()
             update(oldNight)
-            /**Will update the database**/
+
+            _navigateToSleepQuality.value = oldNight
         }
     }
 
@@ -114,6 +155,7 @@ class SleepTrackerViewModel(val database: SleepDatabaseDao, application: Applica
         uiScope.launch {
             clear()
             toNight.value = null
+            _showSnackbarEvent.value = true
         }
     }
 
